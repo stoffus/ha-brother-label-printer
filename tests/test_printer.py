@@ -11,11 +11,11 @@ from pathlib import Path
 
 from PIL import Image, ImageFont
 
-SOURCE = Path(__file__).resolve().parents[1] / "custom_components" / "brother_label"
-package = types.ModuleType("brother_label_test")
+SOURCE = Path(__file__).resolve().parents[1] / "custom_components" / "brother_label_printer"
+package = types.ModuleType("brother_label_printer_test")
 package.__path__ = [str(SOURCE)]
 sys.modules[package.__name__] = package
-printer = importlib.import_module("brother_label_test.printer")
+printer = importlib.import_module("brother_label_printer_test.printer")
 
 
 class PrinterTests(unittest.TestCase):

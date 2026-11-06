@@ -9,11 +9,11 @@ check_config() {
 }
 check_config
 ssh "$host" 'set -eu
-if [ -d /config/custom_components/brother_label ]; then
+if [ -d /config/custom_components/brother_label_printer ]; then
   mkdir -p /config/backups
-  cp -R /config/custom_components/brother_label "/config/backups/brother_label-$(date +%Y%m%d%H%M%S)"
+  cp -R /config/custom_components/brother_label_printer "/config/backups/brother_label_printer-$(date +%Y%m%d%H%M%S)"
 fi
-mkdir -p /config/custom_components/brother_label'
-rsync -av --exclude=__pycache__/ custom_components/brother_label/ "$host:/config/custom_components/brother_label/"
+mkdir -p /config/custom_components/brother_label_printer'
+rsync -av --exclude=__pycache__/ custom_components/brother_label_printer/ "$host:/config/custom_components/brother_label_printer/"
 check_config
 echo 'Installed Brother Label Printer. Restart Home Assistant, then add the integration.'

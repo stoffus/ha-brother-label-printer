@@ -18,7 +18,7 @@ class TapeWidth(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f'{entry.unique_id}_tape_width'
         self._attr_device_info = {'identifiers': {(DOMAIN, entry.unique_id)}}
-        self.entity_id = 'sensor.brother_label_tape_width'
+        self.entity_id = 'sensor.brother_label_printer_tape_width'
 
     @property
     def native_value(self):

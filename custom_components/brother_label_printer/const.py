@@ -1,6 +1,6 @@
 """Defaults for the local Brother P-touch printer."""
 
-DOMAIN = "brother_label"
+DOMAIN = "brother_label_printer"
 DEFAULT_HOST = ""
 DEFAULT_PORT = 9100
 DEFAULT_WIDTH = 24

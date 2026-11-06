@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Breaking: rename the domain and actions from `brother_label` to
+  `brother_label_printer`, and the sensor to `sensor.brother_label_printer_tape_width`.
+- Rename the repository to `ha-brother-label-printer`.
+- See README upgrade steps; existing entries must be recreated under the new domain.
+
 ## 0.3.1
 
 - First public HACS package, requiring Home Assistant 2026.11 or later.
