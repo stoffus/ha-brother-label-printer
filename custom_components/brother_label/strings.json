@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Brother Label Printer",
+        "description": "Connect a PT-P900W(c) over Wi-Fi. Select the loaded TZe tape width. Setup checks TCP connectivity without printing.",
+        "data": {"host": "Hostname or IP address", "port": "TCP port", "tape_width": "Tape width (mm)"}
+      }
+    },
+    "error": {"cannot_connect": "Cannot connect to the printer. Check its address and power."},
+    "abort": {"single_instance_allowed": "Only one Brother label printer is supported."}
+  }
+}

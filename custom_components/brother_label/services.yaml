@@ -1,0 +1,70 @@
+print_label:
+  name: Print label
+  description: >-
+    Submit text to the configured Brother P-touch printer. A successful action
+    confirms submission, not physical printing. Use TZe tape only.
+  fields:
+    verify_tape:
+      name: Verify installed tape
+      description: Read the cassette immediately before submission; reject errors or a width mismatch.
+      default: false
+      selector:
+        boolean:
+    tape_width:
+      name: Tape width
+      description: Loaded TZe tape width in mm. Omit to use the printer's configured default.
+      selector:
+        select:
+          options:
+            - label: 6 mm
+              value: "6"
+            - label: 9 mm
+              value: "9"
+            - label: 12 mm
+              value: "12"
+            - label: 18 mm
+              value: "18"
+            - label: 24 mm
+              value: "24"
+            - label: 36 mm
+              value: "36"
+    text:
+      name: Text
+      description: Up to four lines of Latin-1 text, including Swedish characters.
+      required: true
+      example: "Köttfärs\n2026-11-06"
+      selector:
+        text:
+          multiline: true
+    font_size:
+      name: Font size
+      description: Pixels at 360 dpi; 64 pixels is approximately 13 points.
+      default: 64
+      selector:
+        number:
+          min: 16
+          max: 160
+          mode: box
+    copies:
+      name: Copies
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 10
+          mode: box
+    auto_cut:
+      name: Automatic cut
+      default: true
+      selector:
+        boolean:
+    half_cut:
+      name: Half cut
+      description: Cut the label while keeping the backing intact; requires automatic cut.
+      default: false
+      selector:
+        boolean:
+
+get_status:
+  name: Read installed tape
+  description: Read fresh cassette status over SNMP and return tape_width_mm, media_type, error and error_bytes. Does not print.
