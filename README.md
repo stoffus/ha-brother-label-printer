@@ -2,10 +2,65 @@
 
 ![Brother Label Printer icon](custom_components/brother_label_printer/brand/icon.png)
 
-Print text labels locally from Home Assistant on a Brother **PT-P900W / PT-P900Wc**
-over Wi-Fi or Ethernet. Tested with a PT-P900Wc. Text is rendered at 360 dpi;
+Print text labels locally from Home Assistant on compatible Brother P-touch
+network printers. The tested device is a **PT-P900Wc**; see the compatibility
+table below for other models. Text is rendered at 360 dpi;
 no Brother driver, cloud account, print server, or USB connection is needed.
 This is an independent community integration, not an official Brother product.
+
+## Printer compatibility
+
+Compatibility requires both the right raster format and a supported network
+connection. **Expected compatible** is an inference from Brother's documentation,
+not a hardware-test result or a guarantee.
+
+| Model | Connection for this integration | Status |
+| --- | --- | --- |
+| **PT-P900Wc** | Wi-Fi, raw TCP | **Tested device** used to develop this integration. Network submission and SNMP cassette detection have been exercised, including detection of 12 and 24 mm tape. |
+| **PT-P900W** | Wi-Fi, raw TCP | **Expected compatible; untested as a separate model.** Covered by the raster and network-status references below. |
+| **PT-P950NW** | Wi-Fi or Ethernet, raw TCP | **Expected compatible; untested.** Shares the documented raster format and network-status interface. |
+| **PT-P900** (without W) | No supported native network connection | **Not supported by the current transport.** Sharing the raster format does not provide USB/serial support. |
+| **PT-P910BT** | USB / Bluetooth | **Not supported by the current transport.** A related raster format does not provide USB/Bluetooth support. |
+
+Other models, including **PT-P700, PT-P750W, PT-P710BT and the QL series**, are
+**not claimed supported**. Wi-Fi, TZe tape, or a working SNMP response alone is
+not enough to establish printing compatibility. No USB, Bluetooth, or external
+print-server bridge has been implemented or validated here.
+
+### Why the P900W and P950NW are candidates
+
+The encoder implements 360 × 360 dpi, a 560-pin head, 70-byte uncompressed raster
+rows, and the TZe print-area/margin values in Brother's shared
+[PT-P900/P900W/P950NW/P910BT raster reference](https://download.brother.com/welcome/docp100407/cv_ptp900_eng_raster_102.pdf)
+(printed pages 12, 20 and 40). Brother's
+[network specifications](https://brothermobilesolutions.com/wp-content/uploads/2021/11/PT900-950-Datasheet-online-02-21-1.pdf)
+list raw port 9100 for the network models and distinguish their interfaces.
+The [developer network-status documentation](https://atyourside.brother.co.uk/developer-centre/developer-resources)
+explicitly lists PT-P900W and PT-P950NW for the same SNMP status OID used here.
+The [PT-P910BT specifications](https://support.brother.com/g/b/spec.aspx?c=us&lang=en&prod=p910bteus)
+list USB and Bluetooth interfaces.
+
+These similarities justify testing, but firmware, cutting behavior and status
+reporting still need confirmation on each model. Setup checks connectivity only;
+it does not identify or certify the printer model. The current device metadata
+uses the development model name PT-P900Wc, even on another model.
+
+### Limits and compatibility reports
+
+The integration renders **6, 9, 12, 18, 24 and 36 mm TZe tape**; this is not a
+claim that every width has been physically tested. It does not support 3.5 mm
+printing, HSe tubing, FLe die-cut media, or the printer's high-resolution mode.
+
+To confirm another model, first read `brother_label_printer.get_status` and
+compare the reported width with the cassette. Then submit one short label with
+`copies: 1`, the actual `tape_width`, and `verify_tape: true`. Check the physical
+text, orientation, margins and cut. A successful submission alone is not proof
+of a successful print. If a send fails, inspect the printer before retrying.
+
+Please report the exact model/suffix, firmware, connection type, tape width,
+status-detection result and physical print/cut result in a GitHub issue. Omit
+private network addresses, credentials and sensitive label contents. Verified
+reports can move a model from **expected compatible** to **tested**.
 
 ## Install with HACS
 
