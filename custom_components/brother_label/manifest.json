@@ -10,8 +10,7 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/stoffus/home-assistant-brother-label/issues",
   "requirements": [
-    "Pillow==13.0.0",
-    "pysnmp==7.1.27"
+    "pysnmp>=7.1.27"
   ],
   "version": "0.3.1"
 }

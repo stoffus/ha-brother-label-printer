@@ -30,6 +30,10 @@ an independent penetration test or a guarantee of security.
   cassette mismatch/error/timeout rejection, no retries, concurrency, unload,
   and cancellation. Print transport is mocked; no physical labels are printed.
 
+Pillow is supplied by the required Home Assistant version. PySNMP declares a
+minimum version so Home Assistant can apply dependency security updates without
+a conflicting integration pin. The versions above are the audited test baseline.
+
 ## Security boundaries and residual risks
 
 - Text is rasterized; it cannot become raw printer commands. No user-selected
