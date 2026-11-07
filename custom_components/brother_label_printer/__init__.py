@@ -4,7 +4,8 @@ import asyncio
 import logging
 from datetime import timedelta
 
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import UpdateFailed
+from .coordinator import PrinterCoordinator
 from .status import read_status
 
 import voluptuous as vol
@@ -40,42 +41,57 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         if lock.locked():
             raise ServiceValidationError("A label submission is already in progress")
         async with lock:
+            coordinator.record_submission('preparing', 'Preparing label',
+                                          copies=call.data['copies'], tape_width_mm=width)
             try:
-                label = await hass.async_add_executor_job(
-                    render_label, call.data["text"], width, call.data["font_size"]
-                )
-                payload = await hass.async_add_executor_job(
-                    encode_job, label, width, call.data["copies"],
-                    call.data["auto_cut"], call.data["half_cut"],
-                )
-            except ValueError as err:
-                raise ServiceValidationError(str(err)) from err
-            if call.data["verify_tape"]:
-                detected = await fresh_status(coordinator)
-                if detected['error'] or detected['media_type'] != 1 or detected['tape_width_mm'] != width:
-                    raise ServiceValidationError(
-                        f"Tape check failed: expected {width} mm TZe, detected "
-                        f"{detected['tape_width_mm']} mm (errors {detected['error_bytes']}). "
-                        "Check the cassette and try again.")
-            try:
+                try:
+                    label = await hass.async_add_executor_job(
+                        render_label, call.data["text"], width, call.data["font_size"]
+                    )
+                    payload = await hass.async_add_executor_job(
+                        encode_job, label, width, call.data["copies"],
+                        call.data["auto_cut"], call.data["half_cut"],
+                    )
+                except ValueError as err:
+                    raise ServiceValidationError(str(err)) from err
+                if call.data["verify_tape"]:
+                    detected = await fresh_status(coordinator)
+                    if detected['error'] or detected['media_type'] != 1 or not detected['ready'] or detected['tape_width_mm'] != width:
+                        reason = ', '.join(detected['errors']) or detected['printer_status'].replace('_', ' ')
+                        raise ServiceValidationError(
+                            f"Printer not ready for {width} mm TZe: {reason}; "
+                            f"installed tape is {detected['tape_width_mm']} mm. Check the printer.")
+                coordinator.record_submission('submitting', 'Sending label to printer')
                 submission = hass.async_add_executor_job(
                     submit_job, entry.data["host"], entry.data["port"], payload
                 )
                 try:
                     await asyncio.shield(submission)
                 except asyncio.CancelledError:
-                    # Cancellation cannot stop a socket operation in a worker.
-                    # Retain the lock until it finishes to prevent overlapping jobs.
+                    # Cancellation cannot stop a socket worker. Keep the lock and
+                    # record its actual outcome before allowing another submission.
                     try:
                         await submission
                     except OSError:
-                        pass
+                        coordinator.record_submission('failed',
+                            'Submission failed; the label may have been received. Check before retrying.')
+                    else:
+                        coordinator.record_submission('submitted',
+                            'Sent to printer; physical printing is not confirmed')
                     raise
+                coordinator.record_submission('submitted',
+                    'Sent to printer; physical printing is not confirmed')
+            except asyncio.CancelledError:
+                if coordinator.submission['state'] == 'preparing':
+                    coordinator.record_submission('cancelled', 'Cancelled before sending')
+                raise
             except OSError as err:
-                raise HomeAssistantError(
-                    "Printer submission failed. Check the printer before retrying; "
-                    "the label may already have been received."
-                ) from err
+                coordinator.record_submission('failed',
+                    'Submission failed; the label may have been received. Check before retrying.')
+                raise HomeAssistantError(coordinator.submission['detail']) from err
+            except HomeAssistantError as err:
+                coordinator.record_submission('rejected', str(err))
+                raise
         return {"status": "submitted", "copies": call.data["copies"],
                 "tape_width_mm": width}
 
@@ -117,7 +133,7 @@ async def async_setup_entry(hass, entry) -> None:
         except Exception as err:
             raise UpdateFailed(f"Cannot read Brother tape status: {err}") from err
 
-    coordinator = DataUpdateCoordinator(
+    coordinator = PrinterCoordinator(
         hass, logging.getLogger(__name__), name='Brother label status',
         update_method=update, update_interval=timedelta(seconds=30), config_entry=entry)
     # An offline SNMP endpoint must not prevent manual printing.

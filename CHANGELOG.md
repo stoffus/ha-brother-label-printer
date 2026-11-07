@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- Reconfigure address, port, default width and model override without recreating entries.
+- Decode Brother readiness/error flags and expose status and error sensors.
+- Track last submission and timestamps, restoring uncertain attempts as unknown.
+- Reject non-ready printers when tape verification is enabled; never retry ambiguous sends.
+
 ## 0.5.0
 
 - Detect model family from SNMP and update Home Assistant device information.

@@ -63,3 +63,28 @@ class BrotherLabelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional("model_override", default=""): vol.All(cv.string, vol.Length(max=64)),
             }),
         )
+
+    async def async_step_reconfigure(self, user_input=None):
+        """Edit connection and defaults without replacing the config entry."""
+        entry = self._get_reconfigure_entry()
+        errors = {}
+        if user_input is not None:
+            data = dict(user_input)
+            data['host'] = data['host'].strip().lower()
+            data['model_override'] = data.get('model_override', '').strip()
+            if not data['host']:
+                errors['host'] = 'invalid_host'
+            elif (data['host'], data['port']) != (entry.data['host'], entry.data['port']):
+                try:
+                    await self.hass.async_add_executor_job(check_connection, data['host'], data['port'])
+                except OSError:
+                    errors['base'] = 'cannot_connect'
+            if not errors:
+                return self.async_update_reload_and_abort(entry, data_updates=data)
+        defaults = user_input or entry.data
+        return self.async_show_form(step_id='reconfigure', errors=errors, data_schema=vol.Schema({
+            vol.Required('host', default=defaults['host']): vol.All(cv.string, vol.Length(min=1, max=253)),
+            vol.Required('port', default=defaults['port']): cv.port,
+            vol.Required('tape_width', default=defaults['tape_width']): vol.In(list(TAPES)),
+            vol.Optional('model_override', default=defaults.get('model_override', '')): vol.All(cv.string, vol.Length(max=64)),
+        }))

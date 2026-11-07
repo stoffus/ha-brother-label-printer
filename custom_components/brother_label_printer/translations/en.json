@@ -16,13 +16,54 @@
         "data": {
           "model_override": "Model name override (optional)"
         }
+      },
+      "reconfigure": {
+        "title": "Edit printer settings",
+        "description": "Change the printer address, port, default tape width or model-name override. Clear the override to restore automatic model detection. A changed address/port is checked before saving.",
+        "data": {
+          "host": "Hostname or IP address",
+          "port": "TCP port",
+          "tape_width": "Default tape width (mm)",
+          "model_override": "Model name override (optional)"
+        }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to the printer. Check its address and power."
+      "cannot_connect": "Cannot connect to the printer. Check its address and power.",
+      "invalid_host": "Enter a hostname or IP address."
     },
     "abort": {
-      "single_instance_allowed": "Only one Brother label printer is supported."
+      "single_instance_allowed": "Only one Brother label printer is supported.",
+      "reconfigure_successful": "Printer settings updated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "printer_status": {
+        "name": "Printer status",
+        "state": {
+          "ready": "Ready",
+          "busy": "Busy",
+          "error": "Error",
+          "no_tape": "No tape",
+          "unsupported_tape": "Unsupported tape",
+          "powered_off": "Powered off",
+          "unknown": "Unknown"
+        }
+      },
+      "last_submission": {
+        "name": "Last submission",
+        "state": {
+          "idle": "No submissions yet",
+          "preparing": "Preparing",
+          "submitting": "Sending",
+          "submitted": "Submitted",
+          "failed": "Submission failed",
+          "rejected": "Rejected before sending",
+          "cancelled": "Cancelled before sending",
+          "unknown": "Outcome unknown"
+        }
+      }
     }
   }
 }

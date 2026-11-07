@@ -27,3 +27,26 @@ class StatusTests(unittest.TestCase):
         for raw in [b'', bytes(31), bytes(32), bytes(33)]:
             with self.assertRaises(ValueError):
                 parse_status(raw)
+
+    def test_readiness_and_errors(self):
+        raw = bytearray(32)
+        raw[:4] = b'\x80\x20\x42\x30'
+        raw[4], raw[10], raw[11] = 0x6f, 24, 1
+        self.assertTrue(parse_status(raw)['ready'])
+        for offset, value, message in [(8, 1, 'No tape'), (8, 4, 'Cutter jam'),
+                                       (9, 16, 'Cover open'), (9, 32, 'Overheating'),
+                                       (7, 0x21, 'Incompatible media')]:
+            packet = raw.copy()
+            packet[offset] = value
+            result = parse_status(packet)
+            self.assertFalse(result['ready'])
+            self.assertIn(message, result['errors'])
+        for offset, value, state in [(10, 0, 'no_tape'), (11, 3, 'unsupported_tape'),
+                                     (19, 1, 'busy'), (19, 2, 'unknown'), (18, 4, 'powered_off')]:
+            packet = raw.copy()
+            packet[offset] = value
+            self.assertEqual(parse_status(packet)['printer_status'], state)
+            self.assertFalse(parse_status(packet)['ready'])
+        packet = raw.copy()
+        packet[8], packet[9] = 4, 16
+        self.assertEqual(parse_status(packet)['errors'], ['Cutter jam', 'Cover open'])

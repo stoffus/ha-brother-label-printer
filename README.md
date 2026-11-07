@@ -74,7 +74,12 @@ Requires **Home Assistant 2026.11.0 or later** and HACS.
    automatic detection, or enter a preferred display name.
 
 Setup checks TCP connectivity without printing. One printer is supported.
-To change its address or default width, remove and re-add the integration.
+To change settings later, open **Settings → Devices & services → Brother Label
+Printer → entry menu (⋮) → Reconfigure**. Edit the address, TCP port, default
+width or model-name override. Changed connections are checked before saving;
+failed checks leave existing settings intact. The entry and entities are retained
+and reloaded automatically. With an unchanged address/port, defaults can also be
+edited while the printer is offline.
 ### Upgrade from 0.3.x
 
 Version 0.4.0 changes the integration domain from `brother_label` to
@@ -132,7 +137,7 @@ use extra tape because of the cutter position; feed margins are 1 mm.
 
 An optional action response returns `status: submitted`. This means bytes were
 sent, **not** that a physical label was successfully printed. This printer did
-not return status to TCP queries; no paper/cover/error sensors are exposed.
+not return status to TCP queries; readiness and errors are read separately over SNMP.
 Transmission failures are never automatically retried because a label could
 already have reached the printer. Overlapping submissions are rejected.
 
@@ -170,10 +175,10 @@ The status OID is `1.3.6.1.4.1.2435.3.3.9.1.6.1.0`; width is byte 10 of Brother'
 sensor unavailable. Manual printing remains available when SNMP is offline.
 
 `brother_label_printer.get_status` returns fresh `tape_width_mm`, `media_type`, `error`,
-and `error_bytes` fields (requires a response). It does not print. Use this
+`error_bytes`, `errors`, `printer_status`, and `ready` fields (requires a response). It does not print. Use this
 response to format a label, then call `brother_label_printer.print_label` with that
 `tape_width` and `verify_tape: true`. Immediately before sending, the integration
-checks again and rejects cassette errors, non-TZe media, or a width mismatch.
+checks again and rejects errors, busy/unknown readiness, non-TZe media, or a width mismatch.
 The check and submission share the print lock. A physical cassette change in
 the brief interval after the check cannot be prevented by software.
 
@@ -196,8 +201,8 @@ The PT-P900Wc reports the PT-P900W family code; this response does not distingui
 the `c` suffix. You can enter `PT-P900Wc` as a display override during setup.
 An override takes precedence in device information, while status attributes
 continue to report what the printer actually returns. It does not change raster
-encoding or add printer support. To change the override later, remove and re-add
-the integration using the same connection settings.
+encoding or add printer support. Use **Reconfigure** to change the override later;
+clear it to return to automatic detection.
 
 Unknown model codes display **Unknown**. If SNMP is unavailable at startup, the
 device uses the override or **Unknown**, and manual printing remains available.
@@ -210,6 +215,31 @@ Model codes are documented on printed page 24 of the
 [Brother raster reference](https://download.brother.com/welcome/docp100407/cv_ptp900_eng_raster_102.pdf).
 The P900W entry prints ASCII `o` with an inconsistent hexadecimal value; this
 integration uses `0x6f`, matching ASCII and the tested PT-P900Wc response.
+
+## Printer status and submission history (0.6.0)
+
+The device exposes these additional sensors:
+
+- **Printer status**: ready, busy, error, no tape, unsupported tape, powered off,
+  or unknown. Updates with the existing 30-second SNMP poll; failed reads make
+  status and error sensors unavailable. A powered-off printer usually cannot
+  answer SNMP and will therefore appear unavailable.
+- **Printer errors**: decoded Brother flags, including cover open, cutter jam,
+  tape exhausted, and overheating. The full list is in the `errors` attribute;
+  raw codes remain available for diagnostics. These reports are not a guarantee
+  that the next print will succeed.
+- **Last submission**: idle, preparing, submitting, submitted, failed, rejected,
+  cancelled, or unknown. Attributes include attempt start/completion time,
+  `last_sent_at` (last successful network send), copies, width, and an explanation.
+  **Submitted means sent over TCP, not confirmed physically printed.** A failed
+  send can still have reached the printer: check it before retrying.
+
+Last-submission state is restored through Home Assistant's restore-state system.
+An interrupted preparing/submitting state restores as unknown, never as success.
+Label text is not stored in this sensor. No automatic retry or print queue is added.
+Checks rejected before the print action starts (including an overlapping request)
+do not replace the active/previous attempt. The history survives integration reloads
+and normal restarts; an abrupt power loss can lose the latest restore-state update.
 
 ## Remove
 

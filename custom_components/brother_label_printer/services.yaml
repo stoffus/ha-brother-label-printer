@@ -6,7 +6,7 @@ print_label:
   fields:
     verify_tape:
       name: Verify installed tape
-      description: Read the cassette immediately before submission; reject errors or a width mismatch.
+      description: Read the cassette immediately before submission; reject errors, non-ready printers or a width mismatch.
       default: false
       selector:
         boolean:
@@ -66,5 +66,5 @@ print_label:
         boolean:
 
 get_status:
-  name: Read installed tape
-  description: Read fresh cassette status over SNMP and return tape_width_mm, media_type, error, error_bytes, model and model_code. Does not print.
+  name: Read printer status
+  description: Read fresh printer status over SNMP, including readiness, decoded errors, tape width, media type and model. Does not print.

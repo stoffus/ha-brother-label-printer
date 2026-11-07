@@ -50,6 +50,9 @@ async def main():
                 }, blocking=True, return_response=True)
                 assert result == {"status": "submitted", "copies": 2, "tape_width_mm": 24}, result
                 assert send.call_count == 1
+                record = hass.data['brother_label_printer'][2].submission
+                assert record['state'] == 'submitted' and record['last_sent_at']
+                assert 'text' not in record
                 for width in (12, 24):
                     result = await hass.services.async_call("brother_label_printer", "print_label", {
                         "text": "2026-11-06 | 2026-11-09", "tape_width": width,
@@ -71,7 +74,8 @@ async def main():
                 else:
                     raise AssertionError("Invalid text was accepted")
                 assert send.call_count == 3
-            status = {"tape_width_mm": 24, "media_type": 1, "error": False, "error_bytes": "000000", "model": "PT-P900W", "model_code": "0x6f"}
+                assert hass.data['brother_label_printer'][2].submission['state'] == 'rejected'
+            status = {"tape_width_mm": 24, "media_type": 1, "error": False, "error_bytes": "000000", "model": "PT-P900W", "model_code": "0x6f", "errors": [], "ready": True, "printer_status": "ready", "status_type": 0, "phase_type": 0}
             with patch.object(integration, "read_status", return_value=status), patch.object(integration, "submit_job") as send:
                 detected = await hass.services.async_call("brother_label_printer", "get_status", {}, blocking=True, return_response=True)
                 assert detected == status
@@ -87,7 +91,7 @@ async def main():
                 assert registry.async_get(device.id).model == 'PT-P900W'
                 await hass.services.async_call("brother_label_printer", "print_label", {"text": "Dates", "tape_width": 24, "verify_tape": True}, blocking=True)
                 assert send.call_count == 1
-                for bad in ({**status, "tape_width_mm": 12}, {**status, "tape_width_mm": 0}, {**status, "error": True}, {**status, "media_type": 3}):
+                for bad in ({**status, "tape_width_mm": 12}, {**status, "tape_width_mm": 0}, {**status, "error": True}, {**status, "media_type": 3}, {**status, "ready": False, "printer_status": "busy"}):
                     with patch.object(integration, "read_status", return_value=bad):
                         try:
                             await hass.services.async_call("brother_label_printer", "print_label", {"text": "Dates", "tape_width": 24, "verify_tape": True}, blocking=True)
@@ -124,6 +128,8 @@ async def main():
                 else:
                     raise AssertionError("Transport error was hidden")
                 assert send.call_count == 1, "Must not retry ambiguous submissions"
+                record = hass.data['brother_label_printer'][2].submission
+                assert record['state'] == 'failed' and 'may have been received' in record['detail']
             async with hass.data["brother_label_printer"][1]:
                 try:
                     await hass.services.async_call("brother_label_printer", "print_label", {
@@ -152,6 +158,7 @@ async def main():
                     pass
                 await hass.async_block_till_done()
                 assert not hass.data['brother_label_printer'][1].locked()
+                assert hass.data['brother_label_printer'][2].submission['state'] == 'submitted'
             if Path(os.environ.get('BROTHER_FRIDGE_SCRIPT', '/config/scripts/labels.yaml')).exists():
                 import yaml
                 from homeassistant.helpers.script import Script
@@ -174,6 +181,25 @@ async def main():
                         assert read.call_count == (2 if selection == 'Auto' else 0)
                 print('PASS: deployed fridge script Auto/manual 12/24 mm layouts; fresh detection and verification.')
             entry = hass.config_entries.async_entries("brother_label_printer")[0]
+            await hass.async_block_till_done()
+            previous_sent = hass.states.get('sensor.brother_label_printer_last_submission').attributes['last_sent_at']
+            with patch.object(integration, 'read_status', return_value=status):
+                assert await hass.config_entries.async_reload(entry.entry_id)
+                await hass.async_block_till_done()
+            restored = hass.states.get('sensor.brother_label_printer_last_submission')
+            assert restored.state == 'submitted' and restored.attributes['last_sent_at'] == previous_sent
+            assert hass.states.get('sensor.brother_label_printer_status').state == 'ready'
+            assert hass.states.get('sensor.brother_label_printer_errors').state == 'None'
+            hass.data['brother_label_printer'][2].record_submission('submitting', 'Sending label to printer')
+            await hass.async_block_till_done()
+            with patch.object(integration, 'read_status', side_effect=TimeoutError):
+                assert await hass.config_entries.async_reload(entry.entry_id)
+                await hass.async_block_till_done()
+            restored = hass.states.get('sensor.brother_label_printer_last_submission')
+            assert restored.state == 'unknown' and 'Check printer' in restored.attributes['detail']
+            assert restored.attributes['last_sent_at'] == previous_sent
+            assert hass.states.get('sensor.brother_label_printer_status').state == 'unavailable'
+            print('PASS: submission restoration, interrupted attempt uncertainty, offline status availability.')
             assert await hass.config_entries.async_unload(entry.entry_id)
             assert "brother_label_printer" not in hass.data
             await hass.config_entries.async_remove(entry.entry_id)
@@ -189,7 +215,22 @@ async def main():
             assert entry.data['model_override'] == 'My printer'
             device = registry.async_get_device_by_identifier(('brother_label_printer', entry.unique_id), entry.entry_id)
             assert device.model == 'My printer'
+            original_id = entry.entry_id
+            result = await hass.config_entries.flow.async_init('brother_label_printer', context={'source': 'reconfigure', 'entry_id': original_id})
+            assert result['step_id'] == 'reconfigure'
+            edited = {**entry.data, 'host': 'new-printer.example.test', 'tape_width': 12, 'model_override': ''}
+            with patch.object(flow, 'check_connection', side_effect=OSError):
+                result = await hass.config_entries.flow.async_configure(result['flow_id'], edited)
+            assert result['errors']['base'] == 'cannot_connect'
+            assert entry.data['host'] == 'printer.example.test'
+            with patch.object(flow, 'check_connection'), patch.object(integration, 'read_status', return_value=status):
+                result = await hass.config_entries.flow.async_configure(result['flow_id'], edited)
+                await hass.async_block_till_done()
+            assert result['type'] == 'abort' and result['reason'] == 'reconfigure_successful'
+            assert entry.entry_id == original_id and entry.data['tape_width'] == 12
+            assert entry.data['host'] == 'new-printer.example.test' and not entry.data['model_override']
             await hass.config_entries.async_remove(entry.entry_id)
+            print('PASS: reconfigure validates changed endpoints and preserves entry identity.')
             print('PASS: model detection, unknown/offline setup, display override, and registry updates.')
             print("PASS: config flow, connection-error handling, action rendering, response, "
                   "invalid text, no retry, concurrency guard, unload. No labels printed.")
