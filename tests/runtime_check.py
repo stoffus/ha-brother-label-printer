@@ -79,6 +79,15 @@ async def main():
             with patch.object(integration, "read_status", return_value=status), patch.object(integration, "submit_job") as send:
                 detected = await hass.services.async_call("brother_label_printer", "get_status", {}, blocking=True, return_response=True)
                 assert detected == status
+                for width, errors, expected in [(0, ['Cover open'], 'unknown'), (24, ['Cover open'], 'unknown'), (0, [], 'unknown'), (12, [], '12'), (24, [], '24')]:
+                    reported = {**status, 'tape_width_mm': width, 'errors': errors, 'error': bool(errors)}
+                    with patch.object(integration, 'read_status', return_value=reported):
+                        await hass.data['brother_label_printer'][2].async_refresh()
+                        await hass.async_block_till_done()
+                    sensor = hass.states.get('sensor.brother_label_printer_tape_width')
+                    assert sensor.state == expected, sensor
+                    assert sensor.attributes['tape_width_mm'] == width
+                print('PASS: open-cover/undetected widths show unknown; closed-cover widths recover; raw values retained.')
                 entry = hass.config_entries.async_entries('brother_label_printer')[0]
                 registry = device_registry.async_get(hass)
                 device = registry.async_get_device_by_identifier(('brother_label_printer', entry.unique_id), entry.entry_id)

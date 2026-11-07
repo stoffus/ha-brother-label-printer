@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Show unknown tape width when the cover is open or no width is detected, instead of misleading 0 mm or stale cassette values. Raw status and print verification remain unchanged.
+
 ## 0.6.0
 
 - Reconfigure address, port, default width and model override without recreating entries.

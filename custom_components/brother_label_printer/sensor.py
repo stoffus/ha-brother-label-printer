@@ -26,7 +26,12 @@ class TapeWidth(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self):
-        return self.coordinator.data['tape_width_mm'] if self.coordinator.data else None
+        data = self.coordinator.data
+        # An open cover makes cassette detection unreliable, even if firmware
+        # retains a positive width. Never present a guessed or stale width.
+        if not data or 'Cover open' in data.get('errors', []):
+            return None
+        return data['tape_width_mm'] or None
 
     @property
     def extra_state_attributes(self):

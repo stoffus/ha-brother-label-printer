@@ -171,8 +171,10 @@ bundled under the SIL Open Font License in `custom_components/brother_label_prin
 `sensor.brother_label_printer_tape_width` polls the printer every 30 seconds using SNMPv1,
 community `public`, UDP 161. Allow that port from Home Assistant to the printer.
 The status OID is `1.3.6.1.4.1.2435.3.3.9.1.6.1.0`; width is byte 10 of Brother's
-32-byte status packet. A missing cassette reports 0 mm; failed reads make the
-sensor unavailable. Manual printing remains available when SNMP is offline.
+32-byte status packet. The sensor shows **Unknown** when the cover is open or
+no width is detected; failed reads make it unavailable. Raw `tape_width_mm`
+attributes/action responses retain the printer report (including 0 for no detected
+width), so pre-print checks still reject an undetected cassette. Manual printing remains available when SNMP is offline.
 
 `brother_label_printer.get_status` returns fresh `tape_width_mm`, `media_type`, `error`,
 `error_bytes`, `errors`, `printer_status`, and `ready` fields (requires a response). It does not print. Use this
