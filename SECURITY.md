@@ -19,3 +19,17 @@ by Home Assistant before the action is called. Label text is not intentionally
 logged by this integration, but Home Assistant traces can retain action data.
 
 See [the pre-publication review](docs/security-audit.md) for scope and limitations.
+
+## Dependency maintenance
+
+Dependabot checks GitHub Actions and `requirements-dev.txt` weekly on Mondays
+at 08:00 Europe/Stockholm. Updates open pull requests for CI and review; they
+are not automatically merged. Dependabot alerts and security updates are also
+enabled on GitHub.
+
+The test requirements pin Pillow and PySNMP so both can receive update proposals.
+Dependabot does not edit Home Assistant's `manifest.json`. Its PySNMP minimum
+must be reviewed manually when a fix requires raising it. Pillow at runtime is
+provided by Home Assistant, so updating the test pin does not patch an installed
+Home Assistant instance. Dependabot does not update the Python interpreter
+version in `actions/setup-python` either; that follows Home Assistant support.
