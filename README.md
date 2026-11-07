@@ -4,7 +4,7 @@
 
 Print text labels locally from Home Assistant on compatible Brother P-touch
 network printers. The tested device is a **PT-P900Wc**; see the compatibility
-table below for other models. Text is rendered at 360 dpi;
+table below for other models. Text defaults to 360 × 360 dpi, with optional high-resolution and draft modes;
 no Brother driver, cloud account, print server, or USB connection is needed.
 This is an independent community integration, not an official Brother product.
 
@@ -48,7 +48,7 @@ Identification does not certify printing compatibility.
 
 The integration renders **6, 9, 12, 18, 24 and 36 mm TZe tape**; this is not a
 claim that every width has been physically tested. It does not support 3.5 mm
-printing, HSe tubing, FLe die-cut media, or the printer's high-resolution mode.
+printing, HSe tubing, or FLe die-cut media.
 
 To confirm another model, first read `brother_label_printer.get_status` and
 compare the reported width with the cassette. Then submit one short label with
@@ -76,7 +76,7 @@ Requires **Home Assistant 2026.11.0 or later** and HACS.
 Setup checks TCP connectivity without printing. One printer is supported.
 To change settings later, open **Settings → Devices & services → Brother Label
 Printer → entry menu (⋮) → Reconfigure**. Edit the address, TCP port, default
-width, model-name override or status polling interval (10–300 seconds, default
+width, print quality, model-name override or status polling interval (10–300 seconds, default
 30). The interval applies to tape, readiness and error polling; explicit status
 reads and pre-print verification always request fresh status. Changed connections are checked before saving;
 failed checks leave existing settings intact. The entry and entities are retained
@@ -142,6 +142,46 @@ sent, **not** that a physical label was successfully printed. This printer did
 not return status to TCP queries; readiness and errors are read separately over SNMP.
 Transmission failures are never automatically retried because a label could
 already have reached the printer. Overlapping submissions are rejected.
+
+## Print quality (0.8.0)
+
+Select **Default print quality** in **Reconfigure**, or override it for an action:
+
+```yaml
+action: brother_label_printer.print_label
+data:
+  text: "Öppnad: 2026-11-07\nAnvänd senast: 2026-11-10"
+  tape_width: 24
+  print_quality: high_resolution
+  verify_tape: true
+```
+
+| Value | Resolution (head × feed) | Use |
+| --- | --- | --- |
+| `standard` | 360 × 360 dpi | Default; current behavior |
+| `high_resolution` | 360 × 720 dpi | Finer detail along the tape |
+| `draft` | 360 × 180 dpi | Lower detail, high-speed mode |
+
+Omitting `print_quality` uses the entry's default. Existing entries stay on
+Standard. `font_size` still means pixels at 360 dpi: the renderer preserves
+physical text size and label length, subject to dot rounding. High resolution
+renders from font outlines at higher resolution; it does not simply duplicate
+monochrome pixels. Feed margins scale with resolution. Tape width and line-count
+limits remain unchanged. The last-submission sensor records the selected quality.
+
+Brother requires **AC power and black-ink laminated tape** for High resolution
+and Draft. Use laminated TZe with this integration. See
+[Brother's specifications](https://support.brother.com/g/b/spec.aspx?c=ca&lang=en&prod=p900weus).
+The raster command requests laminated media for these modes; the printer checks
+compatibility. The integration does not independently verify ink color or power
+source, and a successful TCP send is not a physical print confirmation. It does
+not silently downgrade or retry rejected jobs. The modes are documented for the
+P900/P900W/P950NW family, not the unsupported P910BT.
+
+High-resolution and draft encoding/layout have automated tests, but **physical
+printing in these modes has not yet been validated on the development printer**.
+For a physical test, explicitly choose a mode, print one short label, and compare
+text size, orientation and cut with Standard. No test labels are sent automatically.
 
 ## Validation
 

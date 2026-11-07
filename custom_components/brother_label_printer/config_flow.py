@@ -6,8 +6,9 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import SelectSelector
 
-from .const import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_WIDTH, DEFAULT_POLL_INTERVAL, DOMAIN, TAPES
+from .const import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_WIDTH, DEFAULT_POLL_INTERVAL, DEFAULT_PRINT_QUALITY, DOMAIN, TAPES
 from .printer import check_connection
 from .status import read_status
 
@@ -86,6 +87,11 @@ class BrotherLabelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required('host', default=defaults['host']): vol.All(cv.string, vol.Length(min=1, max=253)),
             vol.Required('port', default=defaults['port']): cv.port,
             vol.Required('tape_width', default=defaults['tape_width']): vol.In(list(TAPES)),
+            vol.Required('print_quality', default=defaults.get('print_quality', DEFAULT_PRINT_QUALITY)): SelectSelector({"options": [
+                {"value": "standard", "label": "Standard (360 × 360 dpi)"},
+                {"value": "high_resolution", "label": "High resolution (360 × 720 dpi)"},
+                {"value": "draft", "label": "Draft (360 × 180 dpi)"},
+            ]}),
             vol.Required('poll_interval', default=defaults.get('poll_interval', DEFAULT_POLL_INTERVAL)): vol.All(cv.positive_int, vol.Range(min=10, max=300)),
             vol.Optional('model_override', default=defaults.get('model_override', '')): vol.All(cv.string, vol.Length(max=64)),
         }))

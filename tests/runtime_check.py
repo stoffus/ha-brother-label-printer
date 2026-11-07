@@ -183,7 +183,8 @@ async def main():
                         script = Script(hass, sequence, 'Fridge test', 'test')
                         await script.async_run(context=Context())
                         assert send.call_count == 1
-                        text, used_width, size = render.call_args.args
+                        text, used_width, size, quality = render.call_args.args
+                        assert quality == 'standard'
                         assert used_width == width
                         assert (' | ' in text) == (width == 12)
                         assert ('\n' in text) == (width == 24)
@@ -231,6 +232,15 @@ async def main():
             assert result['step_id'] == 'reconfigure'
             schema = result['data_schema']
             assert schema(dict(entry.data))['poll_interval'] == 30
+            assert schema(dict(entry.data))['print_quality'] == 'standard'
+            for quality in ('standard', 'high_resolution', 'draft'):
+                assert schema({**entry.data, 'print_quality': quality})['print_quality'] == quality
+            try:
+                schema({**entry.data, 'print_quality': 'invalid'})
+            except vol.Invalid:
+                pass
+            else:
+                raise AssertionError('Invalid quality accepted')
             for invalid in (0, 9, 301, 'invalid'):
                 try:
                     schema({**entry.data, 'poll_interval': invalid})
@@ -240,7 +250,7 @@ async def main():
                     raise AssertionError('Invalid poll interval accepted')
             for valid in (10, 30, 300):
                 assert schema({**entry.data, 'poll_interval': valid})['poll_interval'] == valid
-            edited = {**entry.data, 'host': 'new-printer.example.test', 'tape_width': 12, 'model_override': '', 'poll_interval': 300}
+            edited = {**entry.data, 'host': 'new-printer.example.test', 'tape_width': 12, 'model_override': '', 'poll_interval': 300, 'print_quality': 'high_resolution'}
             with patch.object(flow, 'check_connection', side_effect=OSError):
                 result = await hass.config_entries.flow.async_configure(result['flow_id'], edited)
             assert result['errors']['base'] == 'cannot_connect'
@@ -265,6 +275,27 @@ async def main():
                 connect.assert_not_called()
             assert hass.data['brother_label_printer'][2].update_interval.total_seconds() == 10
             print('PASS: default/bounded polling, saved settings and reload, fresh explicit/pre-print reads.')
+            assert entry.data['print_quality'] == 'high_resolution'
+            with patch.object(integration, 'submit_job') as send, patch.object(integration, 'render_label', wraps=integration.render_label) as render:
+                for override, expected in [(None, 'high_resolution'), ('draft', 'draft'), ('standard', 'standard')]:
+                    data = {'text': 'Quality test\n2026-11-07', 'tape_width': 24}
+                    if override:
+                        data['print_quality'] = override
+                    await hass.services.async_call('brother_label_printer', 'print_label', data, blocking=True)
+                    assert render.call_args.args[3] == expected
+                    assert hass.data['brother_label_printer'][2].submission['print_quality'] == expected
+                    mode = {'standard': 0x08, 'high_resolution': 0x48, 'draft': 0x09}[expected]
+                    assert b'\x1biK'+bytes([mode]) in send.call_args.args[2]
+                assert send.call_count == 3
+                try:
+                    await hass.services.async_call('brother_label_printer', 'print_label', {'text': 'Invalid', 'print_quality': 'invalid'}, blocking=True)
+                except vol.Invalid:
+                    pass
+                else:
+                    raise AssertionError('Invalid quality action accepted')
+                assert send.call_count == 3
+            print('PASS: saved quality default, action override, mode bytes and invalid quality rejection.')
+
             await hass.config_entries.async_remove(entry.entry_id)
             print('PASS: reconfigure validates changed endpoints and preserves entry identity.')
             print('PASS: model detection, unknown/offline setup, display override, and registry updates.')

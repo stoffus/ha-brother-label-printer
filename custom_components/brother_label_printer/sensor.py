@@ -91,7 +91,7 @@ class LastSubmission(SensorEntity, RestoreEntity):
         await super().async_added_to_hass()
         previous = await self.async_get_last_state()
         if previous and previous.state in self._attr_options and self.coordinator.submission['state'] == 'idle':
-            allowed = ('detail', 'started_at', 'completed_at', 'last_sent_at', 'copies', 'tape_width_mm')
+            allowed = ('detail', 'started_at', 'completed_at', 'last_sent_at', 'copies', 'tape_width_mm', 'print_quality')
             self.coordinator.submission = {k: previous.attributes[k] for k in allowed if k in previous.attributes}
             self.coordinator.submission['state'] = previous.state
             if previous.state in ('preparing', 'submitting'):

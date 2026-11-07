@@ -11,11 +11,15 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .const import TAPES
+from .const import TAPES, DEFAULT_PRINT_QUALITY, PRINT_QUALITIES
 
 
-def render_label(text: str, width: int, font_size: int = 64) -> Image.Image:
+def render_label(text: str, width: int, font_size: int = 64,
+                 print_quality: str = DEFAULT_PRINT_QUALITY) -> Image.Image:
     """Render up to four lines; reject overflow instead of clipping text."""
+    if print_quality not in PRINT_QUALITIES:
+        raise ValueError("Unsupported print quality")
+    dpi = PRINT_QUALITIES[print_quality][0]
     if width not in TAPES:
         raise ValueError("Unsupported TZe tape width")
     if not text.strip() or len(text) > 500:
@@ -37,20 +41,43 @@ def render_label(text: str, width: int, font_size: int = 64) -> Image.Image:
     length = max(57, math.ceil(text_width + 28))
     if length > 4251:
         raise ValueError("Label exceeds 300 mm; shorten text or reduce font_size")
-    label = Image.new("L", (length, height), 255)
-    ImageDraw.Draw(label).multiline_text(
-        ((length - text_width) // 2 - box[0], (height - text_height) // 2 - box[1]),
-        text, font=font, fill=0, spacing=8, align="center",
-    )
+    target_length = math.ceil(length * dpi / 360)
+    if target_length > math.floor(4251 * dpi / 360):
+        raise ValueError("Label exceeds 300 mm; shorten text or reduce font_size")
+    # Render high resolution from the font outlines at 2x, then reduce only
+    # the head axis. Upscaling a 360 dpi monochrome bitmap adds no detail.
+    if dpi == 720:
+        high_font = ImageFont.truetype(str(Path(__file__).parent / "fonts" / "NotoSans.ttf"), font_size * 2)
+        high_box = probe.multiline_textbbox((0, 0), text, font=high_font, spacing=16, align="center")
+        glyphs = Image.new("L", (max(1, math.ceil(high_box[2]-high_box[0])), max(1, math.ceil(high_box[3]-high_box[1]))), 255)
+        ImageDraw.Draw(glyphs).multiline_text(
+            (-high_box[0], -high_box[1]), text, font=high_font, fill=0, spacing=16, align="center")
+        # Font hinting can change advances at a different size. Normalize the
+        # outline render to the original layout metrics to preserve label size.
+        glyphs = glyphs.resize((max(1, math.ceil(text_width * 2)), max(1, math.ceil(text_height * 2))), Image.Resampling.LANCZOS)
+        label = Image.new("L", (length * 2, height * 2), 255)
+        label.paste(glyphs, (int((length-text_width)//2)*2, int((height-text_height)//2)*2))
+    else:
+        label = Image.new("L", (length, height), 255)
+        ImageDraw.Draw(label).multiline_text(
+            ((length - text_width) // 2 - box[0], (height - text_height) // 2 - box[1]),
+            text, font=font, fill=0, spacing=8, align="center",
+        )
+    if label.size != (target_length, height):
+        label = label.resize((target_length, height), Image.Resampling.LANCZOS)
     return label.point(lambda value: 255 if value >= 128 else 0, mode="1")
 
 
 def encode_job(label: Image.Image, width: int, copies: int = 1,
-               auto_cut: bool = True, half_cut: bool = False) -> bytes:
-    """Encode monochrome columns, one bit per pin, at 360 dpi."""
+               auto_cut: bool = True, half_cut: bool = False,
+               print_quality: str = DEFAULT_PRINT_QUALITY) -> bytes:
+    """Encode columns with 360 dpi head resolution and the chosen feed dpi."""
+    if print_quality not in PRINT_QUALITIES:
+        raise ValueError("Unsupported print quality")
+    dpi, quality_bit = PRINT_QUALITIES[print_quality]
     if width not in TAPES or label.height != TAPES[width][0]:
         raise ValueError("Image height does not match tape width")
-    if not 57 <= label.width <= 4251 or not 1 <= copies <= 10:
+    if not math.ceil(57 * dpi / 360) <= label.width <= math.floor(4251 * dpi / 360) or not 1 <= copies <= 10:
         raise ValueError("Invalid label length or copies (1–10)")
     if half_cut and not auto_cut:
         raise ValueError("half_cut requires auto_cut")
@@ -67,12 +94,12 @@ def encode_job(label: Image.Image, width: int, copies: int = 1,
         page_type = 2 if page == copies - 1 else (0 if page == 0 else 1)
         data += b"\x1bia\x01"
         # Validate tape type and width; enable printer recovery.
-        data += b"\x1biz" + bytes((0x86, 0, width, 0))
+        data += b"\x1biz" + bytes((0x86, 0 if print_quality == "standard" else 0x09, width, 0))
         data += struct.pack("<I", label.width) + bytes((page_type, 0))
         data += b"\x1biM" + bytes((0x40 if auto_cut else 0,))
         data += b"\x1biA\x01"
-        data += b"\x1biK" + bytes((0x08 | (0x04 if half_cut else 0),))
-        data += b"\x1bid\x0e\x00"  # 1 mm feed margin.
+        data += b"\x1biK" + bytes((0x08 | quality_bit | (0x04 if half_cut else 0),))
+        data += b"\x1bid" + struct.pack("<H", round(dpi / 25.4))  # ~1 mm feed margin.
         data += b"M\x00" + rows
         data += b"\x1a" if page == copies - 1 else b"\x0c"
     return bytes(data)

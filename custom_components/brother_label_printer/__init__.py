@@ -14,12 +14,13 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
-from .const import DEFAULT_POLL_INTERVAL, DOMAIN, TAPES
+from .const import DEFAULT_POLL_INTERVAL, DEFAULT_PRINT_QUALITY, PRINT_QUALITIES, DOMAIN, TAPES
 from .printer import encode_job, render_label, submit_job
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 SERVICE_SCHEMA = vol.Schema({
     vol.Required("text"): vol.All(cv.string, vol.Length(min=1, max=500)),
+    vol.Optional("print_quality"): vol.In(PRINT_QUALITIES),
     vol.Optional("verify_tape", default=False): cv.boolean,
     vol.Optional("tape_width"): vol.All(vol.Coerce(int), vol.In(TAPES)),
     vol.Optional("font_size", default=64): vol.All(vol.Coerce(int), vol.Range(min=16, max=160)),
@@ -37,20 +38,21 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             raise ServiceValidationError("Configure Brother Label Printer first")
         entry, lock, coordinator = runtime
         width = call.data.get("tape_width", entry.data["tape_width"])
+        quality = call.data.get("print_quality", entry.data.get("print_quality", DEFAULT_PRINT_QUALITY))
         # Reject overlapping requests instead of building an unbounded queue.
         if lock.locked():
             raise ServiceValidationError("A label submission is already in progress")
         async with lock:
             coordinator.record_submission('preparing', 'Preparing label',
-                                          copies=call.data['copies'], tape_width_mm=width)
+                                          copies=call.data['copies'], tape_width_mm=width, print_quality=quality)
             try:
                 try:
                     label = await hass.async_add_executor_job(
-                        render_label, call.data["text"], width, call.data["font_size"]
+                        render_label, call.data["text"], width, call.data["font_size"], quality
                     )
                     payload = await hass.async_add_executor_job(
                         encode_job, label, width, call.data["copies"],
-                        call.data["auto_cut"], call.data["half_cut"],
+                        call.data["auto_cut"], call.data["half_cut"], quality,
                     )
                 except ValueError as err:
                     raise ServiceValidationError(str(err)) from err

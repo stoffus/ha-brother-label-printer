@@ -19,13 +19,14 @@
       },
       "reconfigure": {
         "title": "Edit printer settings",
-        "description": "Change the printer address, port, default tape width or model-name override. Clear the override to restore automatic model detection. A changed address/port is checked before saving. Status polling accepts 10–300 seconds (default 30). Pre-print verification always reads fresh status.",
+        "description": "Change the printer address, port, default tape width or model-name override. Clear the override to restore automatic model detection. A changed address/port is checked before saving. Status polling accepts 10–300 seconds (default 30). Pre-print verification always reads fresh status. Quality: standard = 360×360 dpi, high_resolution = 360×720 dpi, draft = 360×180 dpi. High resolution/draft require AC power and black-ink laminated TZe tape.",
         "data": {
           "host": "Hostname or IP address",
           "port": "TCP port",
           "tape_width": "Default tape width (mm)",
           "model_override": "Model name override (optional)",
-          "poll_interval": "Status polling interval (seconds)"
+          "poll_interval": "Status polling interval (seconds)",
+          "print_quality": "Default print quality"
         }
       }
     },

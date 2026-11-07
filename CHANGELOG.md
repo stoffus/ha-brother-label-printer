@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- Add Standard, High resolution and Draft defaults in Reconfigure and per-action print_quality overrides.
+- Preserve physical text/label dimensions, scale raster feed/margins, and render genuine higher-resolution text.
+- Request laminated media for non-standard modes; document AC power/black-ink requirements and pending physical validation.
+- Record selected quality in last-submission attributes. Existing entries retain Standard.
+
 ## 0.7.0
 
 - Configure the SNMP status polling interval through Reconfigure (10–300 seconds, default 30). Existing entries keep 30 seconds. Explicit status reads and pre-print verification remain fresh.

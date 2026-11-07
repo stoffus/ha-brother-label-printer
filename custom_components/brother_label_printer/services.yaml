@@ -4,6 +4,18 @@ print_label:
     Submit text to the configured Brother P-touch printer. A successful action
     confirms submission, not physical printing. Use TZe tape only.
   fields:
+    print_quality:
+      name: Print quality
+      description: Omit to use the configured default. High resolution and draft require AC power and black-ink laminated TZe tape. Physical text size is preserved.
+      selector:
+        select:
+          options:
+            - label: Standard (360 × 360 dpi)
+              value: standard
+            - label: High resolution (360 × 720 dpi)
+              value: high_resolution
+            - label: Draft (360 × 180 dpi)
+              value: draft
     verify_tape:
       name: Verify installed tape
       description: Read the cassette immediately before submission; reject errors, non-ready printers or a width mismatch.
