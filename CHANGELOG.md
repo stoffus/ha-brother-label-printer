@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Detect model family from SNMP and update Home Assistant device information.
+- Show detection during setup with an optional display-name override.
+- Report unknown codes without guessing; keep manual printing available offline.
+- Include detected model and raw model code in status responses and sensor attributes.
+
 ## 0.4.0
 
 - Breaking: rename the domain and actions from `brother_label` to

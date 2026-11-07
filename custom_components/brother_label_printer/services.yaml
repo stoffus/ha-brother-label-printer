@@ -67,4 +67,4 @@ print_label:
 
 get_status:
   name: Read installed tape
-  description: Read fresh cassette status over SNMP and return tape_width_mm, media_type, error and error_bytes. Does not print.
+  description: Read fresh cassette status over SNMP and return tape_width_mm, media_type, error, error_bytes, model and model_code. Does not print.

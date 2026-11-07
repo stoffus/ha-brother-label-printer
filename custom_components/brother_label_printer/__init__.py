@@ -101,13 +101,19 @@ async def fresh_status(coordinator):
 
 
 async def async_setup_entry(hass, entry) -> None:
-    dr.async_get(hass).async_get_or_create(
+    registry = dr.async_get(hass)
+    device = registry.async_get_or_create(
         config_entry_id=entry.entry_id, identifiers={(DOMAIN, entry.unique_id)},
-        name="Brother Label Printer", manufacturer="Brother", model="PT-P900Wc",
+        name="Brother Label Printer", manufacturer="Brother", model=entry.data.get("model_override") or "Unknown",
     )
     async def update():
         try:
-            return await read_status(entry.data['host'])
+            status = await read_status(entry.data['host'])
+            model = entry.data.get('model_override') or status['model']
+            current = registry.async_get(device.id)
+            if current is not None and current.model != model:
+                registry.async_update_device(device.id, model=model)
+            return status
         except Exception as err:
             raise UpdateFailed(f"Cannot read Brother tape status: {err}") from err
 

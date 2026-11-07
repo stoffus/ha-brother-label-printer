@@ -41,9 +41,8 @@ The [PT-P910BT specifications](https://support.brother.com/g/b/spec.aspx?c=us&la
 list USB and Bluetooth interfaces.
 
 These similarities justify testing, but firmware, cutting behavior and status
-reporting still need confirmation on each model. Setup checks connectivity only;
-it does not identify or certify the printer model. The current device metadata
-uses the development model name PT-P900Wc, even on another model.
+reporting still need confirmation on each model. Setup detects the model family from the SNMP status packet when available.
+Identification does not certify printing compatibility.
 
 ### Limits and compatibility reports
 
@@ -71,6 +70,8 @@ Requires **Home Assistant 2026.11.0 or later** and HACS.
 3. Find **Brother Label Printer**, download it, and restart Home Assistant.
 4. Go to **Settings → Devices & services → Add integration → Brother Label Printer**.
 5. Enter the printer hostname/IP, TCP port (normally 9100), and default TZe tape width.
+6. Review the detected model. Leave the optional model-name override blank for
+   automatic detection, or enter a preferred display name.
 
 Setup checks TCP connectivity without printing. One printer is supported.
 To change its address or default width, remove and re-add the integration.
@@ -182,6 +183,33 @@ or retry occurs on cassette changes or detection failures.
 
 Protocol reference: [Brother developer resources](https://atyourside.brother.it/developer-centre/developer-resources)
 and [PT-P900 raster command reference](https://download.brother.com/welcome/docp100407/cv_ptp900_eng_raster_102.pdf).
+
+## Automatic model identification
+
+Starting with 0.5.0, setup reads the model byte in Brother's SNMP status packet.
+Known codes identify PT-P900, PT-P900W, PT-P950NW and PT-P910BT. The existing
+30-second status polling also refreshes the device model after setup; no extra
+polling requests are needed. `get_status` and the tape sensor attributes include
+`model` (detected name) and `model_code` (hexadecimal byte).
+
+The PT-P900Wc reports the PT-P900W family code; this response does not distinguish
+the `c` suffix. You can enter `PT-P900Wc` as a display override during setup.
+An override takes precedence in device information, while status attributes
+continue to report what the printer actually returns. It does not change raster
+encoding or add printer support. To change the override later, remove and re-add
+the integration using the same connection settings.
+
+Unknown model codes display **Unknown**. If SNMP is unavailable at startup, the
+device uses the override or **Unknown**, and manual printing remains available.
+A later successful poll updates automatic identification. A temporary read
+failure retains the last detected device model until restart, while the tape
+sensor becomes unavailable. Existing entries without an override automatically
+use detection after upgrading and restarting; no reconfiguration is needed.
+
+Model codes are documented on printed page 24 of the
+[Brother raster reference](https://download.brother.com/welcome/docp100407/cv_ptp900_eng_raster_102.pdf).
+The P900W entry prints ASCII `o` with an inconsistent hexadecimal value; this
+integration uses `0x6f`, matching ASCII and the tested PT-P900Wc response.
 
 ## Remove
 

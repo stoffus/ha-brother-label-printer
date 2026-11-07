@@ -36,8 +36,11 @@ async def main():
             with patch.object(flow, "check_connection", side_effect=TimeoutError):
                 result = await hass.config_entries.flow.async_configure(result["flow_id"], values)
                 assert result["errors"] == {"base": "cannot_connect"}
-            with patch.object(flow, "check_connection"):
+            with patch.object(flow, "check_connection"), patch.object(flow, "read_status", side_effect=TimeoutError):
                 result = await hass.config_entries.flow.async_configure(result["flow_id"], values)
+            assert result["type"] == "form" and result["step_id"] == "model", result
+            assert result['description_placeholders']['detected_model'] == 'Unknown'
+            result = await hass.config_entries.flow.async_configure(result['flow_id'], {})
             assert result["type"] == "create_entry", result
             await hass.async_block_till_done()
             import custom_components.brother_label_printer as integration
@@ -68,10 +71,20 @@ async def main():
                 else:
                     raise AssertionError("Invalid text was accepted")
                 assert send.call_count == 3
-            status = {"tape_width_mm": 24, "media_type": 1, "error": False, "error_bytes": "000000"}
+            status = {"tape_width_mm": 24, "media_type": 1, "error": False, "error_bytes": "000000", "model": "PT-P900W", "model_code": "0x6f"}
             with patch.object(integration, "read_status", return_value=status), patch.object(integration, "submit_job") as send:
                 detected = await hass.services.async_call("brother_label_printer", "get_status", {}, blocking=True, return_response=True)
                 assert detected == status
+                entry = hass.config_entries.async_entries('brother_label_printer')[0]
+                registry = device_registry.async_get(hass)
+                device = registry.async_get_device_by_identifier(('brother_label_printer', entry.unique_id), entry.entry_id)
+                assert device.model == 'PT-P900W'
+                hass.config_entries.async_update_entry(entry, data={**entry.data, 'model_override': 'PT-P900Wc'})
+                await hass.data['brother_label_printer'][2].async_refresh()
+                assert registry.async_get(device.id).model == 'PT-P900Wc'
+                hass.config_entries.async_update_entry(entry, data={**entry.data, 'model_override': ''})
+                await hass.data['brother_label_printer'][2].async_refresh()
+                assert registry.async_get(device.id).model == 'PT-P900W'
                 await hass.services.async_call("brother_label_printer", "print_label", {"text": "Dates", "tape_width": 24, "verify_tape": True}, blocking=True)
                 assert send.call_count == 1
                 for bad in ({**status, "tape_width_mm": 12}, {**status, "tape_width_mm": 0}, {**status, "error": True}, {**status, "media_type": 3}):
@@ -163,10 +176,25 @@ async def main():
             entry = hass.config_entries.async_entries("brother_label_printer")[0]
             assert await hass.config_entries.async_unload(entry.entry_id)
             assert "brother_label_printer" not in hass.data
+            await hass.config_entries.async_remove(entry.entry_id)
+            result = await hass.config_entries.flow.async_init('brother_label_printer', context={'source': 'user'})
+            with patch.object(flow, 'check_connection'), patch.object(flow, 'read_status', return_value={**status, 'model': 'PT-P950NW'}):
+                result = await hass.config_entries.flow.async_configure(result['flow_id'], values)
+            assert result['step_id'] == 'model'
+            assert result['description_placeholders']['detected_model'] == 'PT-P950NW'
+            with patch.object(integration, 'read_status', return_value=status):
+                result = await hass.config_entries.flow.async_configure(result['flow_id'], {'model_override': '  My printer  '})
+                await hass.async_block_till_done()
+            entry = hass.config_entries.async_entries('brother_label_printer')[0]
+            assert entry.data['model_override'] == 'My printer'
+            device = registry.async_get_device_by_identifier(('brother_label_printer', entry.unique_id), entry.entry_id)
+            assert device.model == 'My printer'
+            await hass.config_entries.async_remove(entry.entry_id)
+            print('PASS: model detection, unknown/offline setup, display override, and registry updates.')
             print("PASS: config flow, connection-error handling, action rendering, response, "
                   "invalid text, no retry, concurrency guard, unload. No labels printed.")
         finally:
-            await hass.async_stop()
+            await hass.async_stop(force=True)
 
 
-asyncio.run(asyncio.wait_for(main(), 45))
+asyncio.run(asyncio.wait_for(main(), 90))

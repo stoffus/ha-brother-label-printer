@@ -3,11 +3,26 @@
     "step": {
       "user": {
         "title": "Brother Label Printer",
-        "description": "Connect a PT-P900W(c) over Wi-Fi. Select the loaded TZe tape width. Setup checks TCP connectivity without printing.",
-        "data": {"host": "Hostname or IP address", "port": "TCP port", "tape_width": "Tape width (mm)"}
+        "description": "Connect a compatible Brother P-touch network printer. Setup checks TCP connectivity without printing, then detects the model over SNMP.",
+        "data": {
+          "host": "Hostname or IP address",
+          "port": "TCP port",
+          "tape_width": "Tape width (mm)"
+        }
+      },
+      "model": {
+        "title": "Printer model",
+        "description": "Detected model: {detected_model}. Leave the override blank to use automatic detection. An override only changes the displayed model name; it does not add support for other printers.",
+        "data": {
+          "model_override": "Model name override (optional)"
+        }
       }
     },
-    "error": {"cannot_connect": "Cannot connect to the printer. Check its address and power."},
-    "abort": {"single_instance_allowed": "Only one Brother label printer is supported."}
+    "error": {
+      "cannot_connect": "Cannot connect to the printer. Check its address and power."
+    },
+    "abort": {
+      "single_instance_allowed": "Only one Brother label printer is supported."
+    }
   }
 }
