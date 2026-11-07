@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Configure the SNMP status polling interval through Reconfigure (10–300 seconds, default 30). Existing entries keep 30 seconds. Explicit status reads and pre-print verification remain fresh.
+
 ## 0.6.1
 
 - Show unknown tape width when the cover is open or no width is detected, instead of misleading 0 mm or stale cassette values. Raw status and print verification remain unchanged.

@@ -19,12 +19,13 @@
       },
       "reconfigure": {
         "title": "Edit printer settings",
-        "description": "Change the printer address, port, default tape width or model-name override. Clear the override to restore automatic model detection. A changed address/port is checked before saving.",
+        "description": "Change the printer address, port, default tape width or model-name override. Clear the override to restore automatic model detection. A changed address/port is checked before saving. Status polling accepts 10–300 seconds (default 30). Pre-print verification always reads fresh status.",
         "data": {
           "host": "Hostname or IP address",
           "port": "TCP port",
           "tape_width": "Default tape width (mm)",
-          "model_override": "Model name override (optional)"
+          "model_override": "Model name override (optional)",
+          "poll_interval": "Status polling interval (seconds)"
         }
       }
     },

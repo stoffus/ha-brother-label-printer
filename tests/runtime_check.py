@@ -12,6 +12,7 @@ from homeassistant import loader, config_entries
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.setup import async_setup_component
 from homeassistant.exceptions import ServiceValidationError, HomeAssistantError
+import voluptuous as vol
 
 
 async def main():
@@ -224,10 +225,22 @@ async def main():
             assert entry.data['model_override'] == 'My printer'
             device = registry.async_get_device_by_identifier(('brother_label_printer', entry.unique_id), entry.entry_id)
             assert device.model == 'My printer'
+            assert hass.data['brother_label_printer'][2].update_interval.total_seconds() == 30
             original_id = entry.entry_id
             result = await hass.config_entries.flow.async_init('brother_label_printer', context={'source': 'reconfigure', 'entry_id': original_id})
             assert result['step_id'] == 'reconfigure'
-            edited = {**entry.data, 'host': 'new-printer.example.test', 'tape_width': 12, 'model_override': ''}
+            schema = result['data_schema']
+            assert schema(dict(entry.data))['poll_interval'] == 30
+            for invalid in (0, 9, 301, 'invalid'):
+                try:
+                    schema({**entry.data, 'poll_interval': invalid})
+                except vol.Invalid:
+                    pass
+                else:
+                    raise AssertionError('Invalid poll interval accepted')
+            for valid in (10, 30, 300):
+                assert schema({**entry.data, 'poll_interval': valid})['poll_interval'] == valid
+            edited = {**entry.data, 'host': 'new-printer.example.test', 'tape_width': 12, 'model_override': '', 'poll_interval': 300}
             with patch.object(flow, 'check_connection', side_effect=OSError):
                 result = await hass.config_entries.flow.async_configure(result['flow_id'], edited)
             assert result['errors']['base'] == 'cannot_connect'
@@ -238,6 +251,20 @@ async def main():
             assert result['type'] == 'abort' and result['reason'] == 'reconfigure_successful'
             assert entry.entry_id == original_id and entry.data['tape_width'] == 12
             assert entry.data['host'] == 'new-printer.example.test' and not entry.data['model_override']
+            assert hass.data['brother_label_printer'][2].update_interval.total_seconds() == 300
+            with patch.object(integration, 'read_status', return_value=status) as read, patch.object(integration, 'submit_job'):
+                for _ in range(2):
+                    await hass.services.async_call('brother_label_printer', 'get_status', {}, blocking=True, return_response=True)
+                await hass.services.async_call('brother_label_printer', 'print_label', {'text': 'Fresh check', 'tape_width': 24, 'verify_tape': True}, blocking=True)
+                assert read.call_count == 3, 'Long polling must not cache explicit or pre-print reads'
+            result = await hass.config_entries.flow.async_init('brother_label_printer', context={'source': 'reconfigure', 'entry_id': entry.entry_id})
+            assert result['data_schema'](dict(entry.data))['poll_interval'] == 300
+            with patch.object(flow, 'check_connection') as connect, patch.object(integration, 'read_status', return_value=status):
+                result = await hass.config_entries.flow.async_configure(result['flow_id'], {**entry.data, 'poll_interval': 10})
+                await hass.async_block_till_done()
+                connect.assert_not_called()
+            assert hass.data['brother_label_printer'][2].update_interval.total_seconds() == 10
+            print('PASS: default/bounded polling, saved settings and reload, fresh explicit/pre-print reads.')
             await hass.config_entries.async_remove(entry.entry_id)
             print('PASS: reconfigure validates changed endpoints and preserves entry identity.')
             print('PASS: model detection, unknown/offline setup, display override, and registry updates.')

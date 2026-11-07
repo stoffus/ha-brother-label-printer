@@ -76,7 +76,9 @@ Requires **Home Assistant 2026.11.0 or later** and HACS.
 Setup checks TCP connectivity without printing. One printer is supported.
 To change settings later, open **Settings → Devices & services → Brother Label
 Printer → entry menu (⋮) → Reconfigure**. Edit the address, TCP port, default
-width or model-name override. Changed connections are checked before saving;
+width, model-name override or status polling interval (10–300 seconds, default
+30). The interval applies to tape, readiness and error polling; explicit status
+reads and pre-print verification always request fresh status. Changed connections are checked before saving;
 failed checks leave existing settings intact. The entry and entities are retained
 and reloaded automatically. With an unchanged address/port, defaults can also be
 edited while the printer is offline.
@@ -168,7 +170,7 @@ bundled under the SIL Open Font License in `custom_components/brother_label_prin
 
 ### Installed cassette detection (0.3.0)
 
-`sensor.brother_label_printer_tape_width` polls the printer every 30 seconds using SNMPv1,
+`sensor.brother_label_printer_tape_width` polls the printer at the configured interval (default 30 seconds) using SNMPv1,
 community `public`, UDP 161. Allow that port from Home Assistant to the printer.
 The status OID is `1.3.6.1.4.1.2435.3.3.9.1.6.1.0`; width is byte 10 of Brother's
 32-byte status packet. The sensor shows **Unknown** when the cover is open or
@@ -195,7 +197,7 @@ and [PT-P900 raster command reference](https://download.brother.com/welcome/docp
 
 Starting with 0.5.0, setup reads the model byte in Brother's SNMP status packet.
 Known codes identify PT-P900, PT-P900W, PT-P950NW and PT-P910BT. The existing
-30-second status polling also refreshes the device model after setup; no extra
+status polling (default 30 seconds) also refreshes the device model after setup; no extra
 polling requests are needed. `get_status` and the tape sensor attributes include
 `model` (detected name) and `model_code` (hexadecimal byte).
 
@@ -223,7 +225,7 @@ integration uses `0x6f`, matching ASCII and the tested PT-P900Wc response.
 The device exposes these additional sensors:
 
 - **Printer status**: ready, busy, error, no tape, unsupported tape, powered off,
-  or unknown. Updates with the existing 30-second SNMP poll; failed reads make
+  or unknown. Updates with the existing SNMP polling interval (30 seconds by default); failed reads make
   status and error sensors unavailable. A powered-off printer usually cannot
   answer SNMP and will therefore appear unavailable.
 - **Printer errors**: decoded Brother flags, including cover open, cutter jam,

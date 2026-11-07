@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
-from .const import DOMAIN, TAPES
+from .const import DEFAULT_POLL_INTERVAL, DOMAIN, TAPES
 from .printer import encode_job, render_label, submit_job
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -135,7 +135,7 @@ async def async_setup_entry(hass, entry) -> None:
 
     coordinator = PrinterCoordinator(
         hass, logging.getLogger(__name__), name='Brother label status',
-        update_method=update, update_interval=timedelta(seconds=30), config_entry=entry)
+        update_method=update, update_interval=timedelta(seconds=entry.data.get("poll_interval", DEFAULT_POLL_INTERVAL)), config_entry=entry)
     # An offline SNMP endpoint must not prevent manual printing.
     await coordinator.async_refresh()
     hass.data[DOMAIN] = (entry, asyncio.Lock(), coordinator)

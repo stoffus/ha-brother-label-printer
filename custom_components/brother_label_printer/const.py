@@ -4,6 +4,7 @@ DOMAIN = "brother_label_printer"
 DEFAULT_HOST = ""
 DEFAULT_PORT = 9100
 DEFAULT_WIDTH = 24
+DEFAULT_POLL_INTERVAL = 30
 # Printable pins and right-hand padding, Brother raster reference page 20.
 TAPES = {6: (64, 256), 9: (106, 235), 12: (150, 213),
          18: (234, 171), 24: (320, 128), 36: (454, 61)}
