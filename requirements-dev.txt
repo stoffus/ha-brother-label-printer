@@ -1,4 +1,4 @@
 # Test baseline, also monitored by Dependabot. Home Assistant supplies Pillow.
 Pillow==13.0.0
 # Keep the runtime minimum in manifest.json independent of this test pin.
-pysnmp==7.1.27
+pysnmp==7.1.31
